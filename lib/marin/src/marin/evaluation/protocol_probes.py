@@ -158,10 +158,10 @@ class CheckedFile(BaseModel):
 class ProbeEvidence(BaseModel):
     """Everything a probe grader may read for one trial.
 
-    ``execution_captured`` and ``url_access_captured`` say whether the harness recorded executor
-    lifecycle and endpoint access at all; an empty event list without capture means unknown, not
-    absent. ``reasoning_content`` is the parsed message's reasoning field; ``final_message`` is the
-    parsed final assistant text.
+    ``raw_response_captured``, ``execution_captured``, and ``url_access_captured`` say whether the
+    harness recorded pre-parser text, executor lifecycle, and endpoint access at all. An empty field
+    without capture means unknown, not absent. ``reasoning_content`` is the parsed message's
+    reasoning field; ``final_message`` is the parsed final assistant text.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -170,6 +170,7 @@ class ProbeEvidence(BaseModel):
     request: RequestSettings
     serving: ServingOutcome = ServingOutcome.OK
     serving_error: str | None = None
+    raw_response_captured: bool = False
     raw_response: str = ""
     final_message: str = ""
     reasoning_content: str | None = None
@@ -296,6 +297,12 @@ def _serving_failure(check: ProbeCheck, evidence: ProbeEvidence) -> ProbeResult 
     return _not_evaluable(check, f"{evidence.serving}{detail}")
 
 
+def _missing_tool(probe: ToolExecutionProbe | UrlLoadingProbe, evidence: ProbeEvidence) -> ProbeResult | None:
+    if set(probe.tools) & set(evidence.request.tools):
+        return None
+    return _not_evaluable(probe.check, f"request exposed none of the required tools {probe.tools}")
+
+
 def _matches(text: str, expected: str) -> bool:
     return text.strip() == expected
 
@@ -341,6 +348,8 @@ def _tool_status(probe: ToolExecutionProbe, evidence: ProbeEvidence) -> ToolExec
 def _grade_tool_execution(probe: ToolExecutionProbe, evidence: ProbeEvidence) -> ProbeResult:
     if not evidence.execution_captured:
         return _not_evaluable(probe.check, "executor lifecycle was not captured")
+    if (missing := _missing_tool(probe, evidence)) is not None:
+        return missing
     status = _tool_status(probe, evidence)
     submitted = bool(evidence.final_message.strip())
     return ProbeResult(
@@ -359,6 +368,8 @@ def _grade_thinking_disabled(probe: ThinkingDisabledProbe, evidence: ProbeEviden
         return _not_evaluable(
             probe.check, f"request used template {evidence.request.chat_template!r}, not {probe.chat_template!r}"
         )
+    if not evidence.raw_response_captured:
+        return _not_evaluable(probe.check, "raw response was not captured")
     if evidence.reasoning_content:
         status = ThinkingStatus.REASONING_FIELD
     elif any(delimiter in evidence.raw_response for delimiter in probe.reasoning_delimiters):
@@ -378,6 +389,8 @@ def _grade_thinking_disabled(probe: ThinkingDisabledProbe, evidence: ProbeEviden
 def _grade_url_loading(probe: UrlLoadingProbe, evidence: ProbeEvidence) -> ProbeResult:
     if not evidence.url_access_captured:
         return _not_evaluable(probe.check, "URL access was not captured")
+    if (missing := _missing_tool(probe, evidence)) is not None:
+        return missing
     accesses = [access for access in evidence.url_accesses if access.url == probe.url]
     if not accesses:
         status = RetrievalStatus.NOT_ATTEMPTED
@@ -473,7 +486,7 @@ def archive_probe(
     """Grade one trial, store its evidence bundle, and append the linked sample."""
     result = grade_probe(probe, evidence)
     evidence_uri = store.add_artifact(
-        f"{trial_id}/probe_evidence.json",
+        f"{trial_id}/{probe.check}/{doc_id}/probe_evidence.json",
         evidence.model_dump_json(indent=2).encode(),
         metadata={"check": probe.check, "doc_id": doc_id, "trial_id": trial_id},
     )

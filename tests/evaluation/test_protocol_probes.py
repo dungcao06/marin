@@ -188,6 +188,15 @@ FIXTURES = {
         False,
         False,
     ),
+    "tool_not_exposed": (
+        TOOL_PROBE,
+        ProbeEvidence(request=RequestSettings(model="m", chat_template=TEMPLATE), execution_captured=True),
+        None,
+        "required tools",
+        None,
+        None,
+        None,
+    ),
     "execution_not_captured": (
         TOOL_PROBE,
         evidence(final_message=NONCE, parsed_tool_calls=(BASH_CALL,)),
@@ -200,7 +209,7 @@ FIXTURES = {
     # Thinking disabled.
     "no_reasoning_emitted": (
         THINKING_PROBE,
-        evidence(raw_response="42", final_message="42"),
+        evidence(raw_response="42", final_message="42", raw_response_captured=True),
         ThinkingStatus.RESPECTED,
         None,
         True,
@@ -209,7 +218,9 @@ FIXTURES = {
     ),
     "reasoning_field_leak": (
         THINKING_PROBE,
-        evidence(raw_response="42", final_message="42", reasoning_content="17 plus 25 is 42"),
+        evidence(
+            raw_response="42", final_message="42", reasoning_content="17 plus 25 is 42", raw_response_captured=True
+        ),
         ThinkingStatus.REASONING_FIELD,
         None,
         False,
@@ -218,12 +229,21 @@ FIXTURES = {
     ),
     "reasoning_delimiter_leak": (
         THINKING_PROBE,
-        evidence(raw_response="<think>17 plus 25</think>42", final_message="42"),
+        evidence(raw_response="<think>17 plus 25</think>42", final_message="42", raw_response_captured=True),
         ThinkingStatus.REASONING_DELIMITER,
         None,
         False,
         True,
         True,
+    ),
+    "raw_response_not_captured": (
+        THINKING_PROBE,
+        evidence(final_message="42"),
+        None,
+        "raw response",
+        None,
+        None,
+        None,
     ),
     "server_error": (
         THINKING_PROBE,
@@ -340,6 +360,6 @@ def test_archive_probe_keeps_evidence_and_separates_answer_from_protocol(tmp_pat
 
     detail = json.loads(sample.grading.detail)
     assert detail["status"] == ToolExecutionStatus.NO_INVOCATION
-    stored = reader.read_blob("trial-0/probe_evidence.json")
+    stored = reader.read_blob("trial-0/tool_execution/tool-0/probe_evidence.json")
     assert ProbeEvidence.model_validate_json(stored) == trial
-    assert detail["evidence_uri"].endswith("trial-0/probe_evidence.json")
+    assert detail["evidence_uri"].endswith("trial-0/tool_execution/tool-0/probe_evidence.json")
