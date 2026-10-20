@@ -33,14 +33,19 @@ EVIDENCE_SCHEMA_VERSION = 1
 PROBE_TASK_PREFIX = "protocol_probe"
 GRADING_METHOD = "protocol_probe:v1"
 
-PROTOCOL_COMPLIANCE = "protocol_compliance"
-SUBMISSION_COMPLETENESS = "submission_completeness"
-ANSWER_CORRECTNESS = "answer_correctness"
-PROBE_AXES = (PROTOCOL_COMPLIANCE, SUBMISSION_COMPLETENESS, ANSWER_CORRECTNESS)
-
 ANSWER_PATH = "/workspace/answer.txt"
+# Where the tool-execution task environment writes the per-trial nonce.
+NONCE_PATH = "/run/probe/nonce"
 SHELL_TOOL = "bash"
 FETCH_TOOLS = ("fetch", "bash")
+
+
+class ProbeAxis(StrEnum):
+    """An independently reported result dimension; see the module docstring."""
+
+    PROTOCOL_COMPLIANCE = "protocol_compliance"
+    SUBMISSION_COMPLETENESS = "submission_completeness"
+    ANSWER_CORRECTNESS = "answer_correctness"
 
 
 class ProbeCheck(StrEnum):
@@ -232,18 +237,18 @@ class ProbeResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     check: ProbeCheck
-    status: str | None
+    status: SubmissionStatus | ToolExecutionStatus | ThinkingStatus | RetrievalStatus | None
     not_evaluable: str | None = None
     protocol_compliance: bool | None = None
     submission_completeness: bool | None = None
     answer_correctness: bool | None = None
 
-    def axes(self) -> dict[str, bool]:
+    def axes(self) -> dict[ProbeAxis, bool]:
         """The assessed axes only; an unassessed axis is absent, never false."""
         values = {
-            PROTOCOL_COMPLIANCE: self.protocol_compliance,
-            SUBMISSION_COMPLETENESS: self.submission_completeness,
-            ANSWER_CORRECTNESS: self.answer_correctness,
+            ProbeAxis.PROTOCOL_COMPLIANCE: self.protocol_compliance,
+            ProbeAxis.SUBMISSION_COMPLETENESS: self.submission_completeness,
+            ProbeAxis.ANSWER_CORRECTNESS: self.answer_correctness,
         }
         return {name: value for name, value in values.items() if value is not None}
 
@@ -261,7 +266,7 @@ def probe_tasks(*, nonce: str, url: str, chat_template: str, reasoning_delimiter
         ),
         ToolExecutionProbe(
             instruction=(
-                f"Use the {SHELL_TOOL} tool to run `cat /run/probe/nonce` and reply with only its output. "
+                f"Use the {SHELL_TOOL} tool to run `cat {NONCE_PATH}` and reply with only its output. "
                 "The value cannot be guessed."
             ),
             nonce=nonce,
@@ -419,10 +424,10 @@ class AxisRate:
         return self.passed / self.assessed if self.assessed else None
 
 
-def probe_rates(results: Iterable[ProbeResult]) -> dict[ProbeCheck, dict[str, AxisRate]]:
+def probe_rates(results: Iterable[ProbeResult]) -> dict[ProbeCheck, dict[ProbeAxis, AxisRate]]:
     """Per-check, per-axis pass counts with their denominators. ``not_evaluable`` trials are excluded
     from every denominator."""
-    counts: dict[ProbeCheck, dict[str, list[int]]] = {}
+    counts: dict[ProbeCheck, dict[ProbeAxis, list[int]]] = {}
     for result in results:
         per_check = counts.setdefault(result.check, {})
         for axis, value in result.axes().items():
@@ -452,7 +457,7 @@ def probe_sample(
         output=evidence.final_message or None,
         grading=Grading(
             method=GRADING_METHOD,
-            metric=PROTOCOL_COMPLIANCE,
+            metric=ProbeAxis.PROTOCOL_COMPLIANCE,
             score=None if result.protocol_compliance is None else float(result.protocol_compliance),
             passed=result.protocol_compliance,
             detail=json.dumps(detail, sort_keys=True),

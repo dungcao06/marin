@@ -8,6 +8,7 @@ from finestore.eval import EvaluationStore, sample_from_archive_row
 from finestore.reader import ReadView
 from marin.evaluation.protocol_probes import (
     ANSWER_PATH,
+    NONCE_PATH,
     AxisRate,
     CheckedFile,
     ExecutionEvent,
@@ -46,8 +47,8 @@ assert isinstance(THINKING_PROBE, ThinkingDisabledProbe)
 assert isinstance(URL_PROBE, UrlLoadingProbe)
 
 REQUEST = RequestSettings(model="m", chat_template=TEMPLATE, enable_thinking=False, tools=("bash",))
-NARRATED_SHELL = f"I'll run the command.\n$ cat /run/probe/nonce\n{NONCE}x\n\nThe nonce is {NONCE}x."
-BASH_CALL = ParsedToolCall(call_id="c1", name="bash", arguments={"command": "cat /run/probe/nonce"})
+NARRATED_SHELL = f"I'll run the command.\n$ cat {NONCE_PATH}\n{NONCE}x\n\nThe nonce is {NONCE}x."
+BASH_CALL = ParsedToolCall(call_id="c1", name="bash", arguments={"command": f"cat {NONCE_PATH}"})
 
 
 def evidence(**fields) -> ProbeEvidence:
@@ -63,7 +64,15 @@ def answer_file(content: str | None) -> CheckedFile:
 # (probe, evidence, status, not_evaluable reason fragment, protocol, submission, answer)
 FIXTURES = {
     # Required-file submission.
-    "file_written": (FILE_PROBE, evidence(files=(answer_file("marin\n"),)), SubmissionStatus.SUBMITTED, None, None, True, True),
+    "file_written": (
+        FILE_PROBE,
+        evidence(files=(answer_file("marin\n"),)),
+        SubmissionStatus.SUBMITTED,
+        None,
+        None,
+        True,
+        True,
+    ),
     "file_written_wrong_answer": (
         FILE_PROBE,
         evidence(files=(answer_file("grug"),)),
@@ -91,7 +100,9 @@ FIXTURES = {
             final_message=NONCE,
             parsed_tool_calls=(BASH_CALL,),
             execution_captured=True,
-            execution_events=(ExecutionEvent(call_id="c1", status=ExecutionStatus.COMPLETED, exit_code=0, output=NONCE),),
+            execution_events=(
+                ExecutionEvent(call_id="c1", status=ExecutionStatus.COMPLETED, exit_code=0, output=NONCE),
+            ),
         ),
         ToolExecutionStatus.EXECUTED,
         None,
