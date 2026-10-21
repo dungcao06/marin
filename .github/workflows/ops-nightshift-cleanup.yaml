@@ -38,7 +38,7 @@ jobs:
             duplicated nontrivial policy, or unnecessary runtime work. Choose
             one coherent improvement whose value is clear from the diff. Avoid
             style-only refactors and trivial helper extraction. Follow AGENTS.md
-            and the commit skill; open a PR with agent-generated and nightshift
+            and the manage-pr skill; open a PR with agent-generated and nightshift
             labels only if the change is justified. Publish a typed result with
             the PR URL or what was checked when no change was warranted.
           base: ${{ github.sha }}
