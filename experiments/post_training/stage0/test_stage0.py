@@ -5,6 +5,7 @@
 
 import gzip
 import json
+import os
 
 import pytest
 
@@ -108,7 +109,9 @@ def test_convert_source_writes_rows_and_a_manifest_entry(tmp_path):
 
 def test_manifest_records_row_counts_and_hashes_in_stage_order(tmp_path):
     specs = {
-        name: SourceSpec(name=name, repo=f"example/{name}", revision="feedface", config=None, adapt=adapt_wildchat_rewild)
+        name: SourceSpec(
+            name=name, repo=f"example/{name}", revision="feedface", config=None, adapt=adapt_wildchat_rewild
+        )
         for name in STAGE_ORDER
     }
     calls: list[str] = []
@@ -124,7 +127,7 @@ def test_manifest_records_row_counts_and_hashes_in_stage_order(tmp_path):
         return iterator()
 
     originals = {spec.name: spec for spec in specs.values()}
-    import experiments.post_training.stage0.convert as convert_module
+    import experiments.post_training.stage0.convert as convert_module  # noqa: PLC0415 - monkeypatched by this test
 
     original_sources = convert_module.STAGE0_SOURCES
     convert_module.STAGE0_SOURCES = tuple(originals[name] for name in STAGE_ORDER)
@@ -185,14 +188,14 @@ def test_reasoning_and_tool_call_spans_survive_every_chat_template(source_name):
     if not _hf_reachable():
         pytest.skip("HF hub unreachable")
 
-    from marin.datakit.chat_template import MARIN_CHAT_TEMPLATE
+    from marin.datakit.chat_template import MARIN_CHAT_TEMPLATE  # noqa: PLC0415 - config-context import
 
     rows = _synthetic_rows(source_name)
     assert len(rows) == 100
 
     # The exact templates the Stage 0 configs train with.
-    from experiments.post_training.axolotl_sft.bases import AXOLOTL_BASES
-    from experiments.post_training.stage0.axolotl_stage0 import _chat_template_for
+    from experiments.post_training.axolotl_sft.bases import AXOLOTL_BASES  # noqa: PLC0415
+    from experiments.post_training.stage0.axolotl_stage0 import _chat_template_for  # noqa: PLC0415 - same stack
 
     templates = {}
     grug_tokenizer = AutoTokenizer.from_pretrained("NousResearch/Meta-Llama-3-8B-Instruct")
@@ -205,7 +208,9 @@ def test_reasoning_and_tool_call_spans_survive_every_chat_template(source_name):
     ):
         template = _chat_template_for(AXOLOTL_BASES[base_name])
         assert template is not None
-        tokenizer = AutoTokenizer.from_pretrained(AXOLOTL_BASES[base_name].hf_id, revision=AXOLOTL_BASES[base_name].revision)
+        tokenizer = AutoTokenizer.from_pretrained(
+            AXOLOTL_BASES[base_name].hf_id, revision=AXOLOTL_BASES[base_name].revision
+        )
         tokenizer.chat_template = template
         templates[template_name] = tokenizer
 
@@ -239,8 +244,6 @@ def _think_spans(content: str) -> list[str]:
 
 
 def _hf_reachable() -> bool:
-    import os
-
     return os.environ.get("HF_HUB_OFFLINE") != "1"
 
 
@@ -248,9 +251,8 @@ def _hf_reachable() -> bool:
 
 
 def test_snowball_stage0_chains_three_stages_with_the_fixed_parameters():
-    from experiments.post_training.stage0.snowball_stage0 import (
+    from experiments.post_training.stage0.snowball_stage0 import (  # noqa: PLC0415 - reads the pinned HF config at import
         BASE_HF_ID,
-        BASE_REVISION,
         BATCH_SIZE,
         SEQ_LEN,
         snowball_stage0_steps,
@@ -263,7 +265,7 @@ def test_snowball_stage0_chains_three_stages_with_the_fixed_parameters():
     )
     try:
         steps = snowball_stage0_steps()
-    except Exception as error:  # noqa: BLE001 - the conversion reads the pinned HF config
+    except Exception as error:
         pytest.skip(f"HF config for {BASE_HF_ID} unavailable: {error}")
     assert list(steps) == ["s1-chat", "s2-thinking", "s3-terminal"]
     # Stage 2 initializes from stage 1's checkpoint; stage 3 from stage 2's.
@@ -272,13 +274,13 @@ def test_snowball_stage0_chains_three_stages_with_the_fixed_parameters():
 
 
 def test_axolotl_stage0_chains_three_stages_with_matched_budget():
-    from experiments.post_training.stage0.axolotl_stage0 import (
+    from experiments.post_training.axolotl_sft.launcher import axolotl_config  # noqa: PLC0415
+    from experiments.post_training.stage0.axolotl_stage0 import (  # noqa: PLC0415 - pulls the launcher's iris stack
         LEARNING_RATE,
         SEQUENCE_LEN,
         STAGE_ORDER,
         stage_specs,
     )
-    from experiments.post_training.axolotl_sft.launcher import axolotl_config
 
     base_name = "qwen3-30b-a3b-base"
     specs = stage_specs(base_name, data_root="/data", output_root="/out")

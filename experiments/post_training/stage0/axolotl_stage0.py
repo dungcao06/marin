@@ -8,9 +8,11 @@ same per-example budget as the Snowball run: global batch 64 examples per step
 (8 per device x 8 GPUs), one epoch per source, fresh optimizer per stage.
 """
 
+from transformers import AutoTokenizer
+
 from experiments.post_training.axolotl_sft.bases import AXOLOTL_BASES, NEMOTRON_TEMPLATE_SOURCE
-from experiments.post_training.stage0.templates import preserve_intermediate_reasoning
 from experiments.post_training.axolotl_sft.launcher import AxolotlOptimizer, AxolotlSpec
+from experiments.post_training.stage0.templates import preserve_intermediate_reasoning
 
 # #8225: Adam at 5e-6, global batch 64 examples, one epoch per source.
 LEARNING_RATE = "5e-6"
@@ -28,7 +30,6 @@ _STAGE_SOURCE_FILES = {
 
 def _chat_template_for(base) -> str | None:
     """The base's training template with intermediate reasoning preserved."""
-    from transformers import AutoTokenizer
 
     if base.tokenizer_has_template:
         template = AutoTokenizer.from_pretrained(base.hf_id, revision=base.revision).chat_template

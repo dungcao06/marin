@@ -13,8 +13,12 @@ no-reasoning path are untouched.
 
 REASONING_GATE = "{%- if loop.index0 > ns.last_query_index %}"
 REASONING_GATE_WIDENED = "{%- if loop.index0 > ns.last_query_index or reasoning_content %}"
-TRUNCATE_HISTORY_DEFAULT = "{%- set truncate_history_thinking = truncate_history_thinking if truncate_history_thinking is defined else True %}"
-TRUNCATE_HISTORY_OFF = "{%- set truncate_history_thinking = truncate_history_thinking if truncate_history_thinking is defined else False %}"
+TRUNCATE_HISTORY_DEFAULT = (
+    "{%- set truncate_history_thinking = truncate_history_thinking if truncate_history_thinking is defined else True %}"
+)
+TRUNCATE_HISTORY_OFF = (
+    "{%- set truncate_history_thinking = truncate_history_thinking if truncate_history_thinking is defined else False %}"
+)
 
 
 def preserve_intermediate_reasoning(template: str) -> str:

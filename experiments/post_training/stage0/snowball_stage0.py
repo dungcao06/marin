@@ -13,18 +13,17 @@ current 262k Snowball, `open-athena/snowball-67b-a2b-base-262k-qk175`, pinned. P
 from levanter.optim.config import AdamConfig
 from levanter.utils.mesh import MeshConfig
 from marin.datakit.chat_template import MARIN_CHAT_TEMPLATE
+from marin.experiment.checkpoints import hf_to_levanter
 
 from experiments.post_training.stage0.convert import STAGE_ORDER
 from experiments.sft.launcher import (
     ConvertedCheckpointModel,
     DatasetSpec,
-    HFModel,
     LevanterCheckpointModel,
     SFTSpec,
     resources_from_accelerator,
     sft_step,
 )
-from marin.experiment.checkpoints import hf_to_levanter
 
 STAGE0_VERSION = "2026.10.22"
 # The design decision log (2026-10-22): the current 262k base, not the 5.7T cooldown.
@@ -97,6 +96,7 @@ def snowball_stage0_steps():
     per-stage schedule), so the steps resolve their counts from the token totals and
     the launcher threads the chat caches as dependencies.
     """
+
     def stage(name_suffix: str, source: str, model) -> SFTSpec:
         return SFTSpec(
             name=f"checkpoints/stage0-snowball/{name_suffix}",

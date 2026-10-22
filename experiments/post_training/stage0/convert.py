@@ -14,11 +14,13 @@ and SHA-256 hashes per source.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
-import gzip
+import os
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 Message = dict[str, Any]
 
@@ -42,19 +44,13 @@ def adapt_wildchat_rewild(row: dict) -> list[Message]:
 def adapt_nemotron_science(row: dict) -> list[Message]:
     """Assistant bodies embed `<|start_think|>...<|end_think|>`; kept verbatim so
     every chat template renders the reasoning span."""
-    return [
-        {"role": turn["role"], "content": turn["content"]}
-        for turn in row["messages"]
-    ]
+    return [{"role": turn["role"], "content": turn["content"]} for turn in row["messages"]]
 
 
 def adapt_nemotron_terminal(row: dict) -> list[Message]:
     """Terminal trajectories: assistant turns embed `<think>...</think>`; the
     environment's command outputs stay in the user turns verbatim."""
-    return [
-        {"role": turn["role"], "content": turn["content"]}
-        for turn in row["conversations"]
-    ]
+    return [{"role": turn["role"], "content": turn["content"]} for turn in row["conversations"]]
 
 
 # The three #8225 Stage 0 sources at their pinned revisions (DESIGN, Stage 0 data).
@@ -106,7 +102,7 @@ def convert_source(
     226k-row terminal source never sits in memory whole.
     """
     if load_dataset is None:
-        from datasets import load_dataset
+        from datasets import load_dataset  # noqa: PLC0415 - deferred: heavy at import time
 
     dataset = load_dataset(spec.repo, spec.config, revision=spec.revision, split="train", streaming=True)
     rows_written = 0
@@ -134,8 +130,6 @@ def convert_source(
 
 
 def os_replace(source: str, target: str) -> None:
-    import os
-
     os.replace(source, target)
 
 
