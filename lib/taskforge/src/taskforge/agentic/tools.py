@@ -133,13 +133,12 @@ MAX_VERSION_SOLVER_RUNS_FACTOR = 2
 """A version gets at most this many times the solver rollouts that the gate needs. Its pass rate is then known well
 enough, and more rollouts do not move a version near a limit of the band: without a cap, an agent spent half of a
 budget on one such version."""
-MIN_PATTERN_LISTS = 4
-"""Option lists of an idea's tasks that ``submit`` pools before it refuses a place that all correct options share:
-with fewer, a shared place often comes by chance."""
-MIN_LONG_OPTION_CHARS = 30
-"""Options of text, not of codes or numbers: the length of an option tells only in a list of such options."""
-MAX_CORRECT_LENGTH_RATIO = 1.2
-"""The most that the correct option can exceed the longest other option in length before it stands out."""
+OPTION_PROBLEM = (
+    "The answer selects an option from a list, and reviews do not find the flaws of such tasks well. Make a task whose "
+    "answer the solver computes or writes."
+)
+"""On 313 labeled tasks, a quarter of the option tasks that three reviews accepted had a blocking flaw, for example a
+correct option that a guess finds, against one in twenty-five of the other tasks."""
 GUESS_RUNS = 4
 """Rollouts of ``submit`` in which the solver model guesses the answer of a task with files from its prompt alone."""
 MAX_GUESS_PASSES = 2
@@ -586,11 +585,9 @@ class ToolSession:
             blind,
         )
         review = await self._judge(REVIEW_TASK_PROMPT, pretty_json(content), TaskReview)
-        accepted_lists = [options for accepted in self.tools.accepted for options in accepted.review.option_lists]
-        problems = _option_problems(list(review.option_lists), accepted_lists)
-        if not problems:
+        if not review.option_lists:
             return review
-        return review.model_copy(update={"accept": False, "problems": (*review.problems, *problems)})
+        return review.model_copy(update={"accept": False, "problems": (*review.problems, OPTION_PROBLEM)})
 
     async def finish(self, report: str) -> ToolCallResult:
         budget = self.config.budget.solver_rollouts
@@ -696,36 +693,6 @@ class _ReplayModel:
     async def __call__(self, request: ModelRequest) -> ModelTurn:
         message = {"role": "assistant", "content": self.answer}
         return ModelTurn(message, (), (), None, "stop", text=self.answer, usage=TokenUsage(0, 0))
-
-
-def _option_problems(lists: list[OptionList], accepted: list[OptionList]) -> list[str]:
-    """The option lists of a task whose correct option a guess finds: by its length, or by a place that the correct
-    options of this task and of the accepted tasks all share."""
-    lists = [options for options in lists if options.correct <= len(options.options)]
-    problems = []
-    for number, options in enumerate(lists, start=1):
-        others = [len(option) for place, option in enumerate(options.options, start=1) if place != options.correct]
-        correct = len(options.options[options.correct - 1])
-        text = len(others) >= 2 and min(others) >= MIN_LONG_OPTION_CHARS
-        if text and correct > MAX_CORRECT_LENGTH_RATIO * max(others):
-            problems.append(
-                f"The correct option of option list {number} is {correct / max(others) - 1:.0%} longer than any other "
-                "option, so a guess of the longest option gives it. Make the options similar in length and detail."
-            )
-    pooled = [*lists, *accepted]
-    if len(pooled) < MIN_PATTERN_LISTS:
-        return problems
-    if len({options.correct for options in pooled}) == 1:
-        where = f"place {pooled[0].correct}"
-    elif all(options.correct == len(options.options) for options in pooled):
-        where = "the last place"
-    else:
-        return problems
-    problems.append(
-        f"The correct options of the {len(pooled)} option lists of this task and the accepted tasks are all at "
-        f"{where}, so a guess of the place gives the answer. Put each correct option at a random place."
-    )
-    return problems
 
 
 def _next_step(evidence: Evidence, gate: Gate) -> dict[str, str]:

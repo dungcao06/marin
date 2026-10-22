@@ -24,7 +24,7 @@ from taskforge.agentic.config import AgenticConfig, ToolBudget
 from taskforge.agentic.gate import Gate
 from taskforge.agentic.parallel import ParallelWeb
 from taskforge.agentic.prompts import ADVERSARY_PROMPT, GUESS_PROMPT
-from taskforge.agentic.tools import MAX_EMPTY_BUDGET_CALLS, BlindSolution, OptionList, TaskReview
+from taskforge.agentic.tools import MAX_EMPTY_BUDGET_CALLS, OPTION_PROBLEM, BlindSolution, OptionList, TaskReview
 from taskforge.capability import CapabilityIdea
 from taskforge.llm.client import Completion, ContextExhausted, StructuredResult
 from taskforge.llm.policy import LLMPolicy, Message
@@ -242,10 +242,9 @@ async def test_submit_accepts_only_the_task_version_with_complete_evidence():
     assert (result.spend.solver_rollouts, result.spend.judge_calls) == (12, 2)
 
 
-async def test_submit_refuses_a_task_whose_correct_option_is_the_longest():
-    wrong = ("Lower the cooling water flow by one tenth.", "Raise the feed rate of the reactor by one tenth.")
-    correct = "Raise the cooling water flow by one tenth, because the hot steady state then disappears below 440 K."
-    judge = AcceptingJudge(option_lists=(OptionList(options=(*wrong, correct), correct=3),))
+async def test_submit_refuses_a_task_whose_answer_selects_an_option():
+    options = ("Lower the cooling water flow.", "Raise the cooling water flow.", "Raise the feed rate.")
+    judge = AcceptingJudge(option_lists=(OptionList(options=options, correct=2),))
     script = (*SCRIPT, call("finish", report="done"))
     async with ParallelWeb("unused") as web:
         config = agentic_config(ScriptedAgent(script), ToolBudget(solver_rollouts=20, judge_calls=2, web_calls=0), web)
@@ -253,13 +252,13 @@ async def test_submit_refuses_a_task_whose_correct_option_is_the_longest():
 
     [submit] = tool_replies(result, "call-10")
     assert not submit["accepted"]
-    assert any("longer than any other option" in problem for problem in submit["review"]["problems"])
+    assert submit["review"]["problems"] == [OPTION_PROBLEM]
     assert result.tasks == ()
 
 
 @dataclass
 class OnceRefusingJudge(AcceptingJudge):
-    """Refuses the first task that it reviews and accepts the others."""
+    """Refuses in its first review and accepts in the others."""
 
     reviews: int = 0
 
