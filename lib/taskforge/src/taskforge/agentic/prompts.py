@@ -62,10 +62,10 @@ transcripts under /workspace/rollouts/.
 malformed CSV or JSON file. Then it needs this evidence for the exact TaskSpec: a control with expect "pass" that \
 passed, a control with expect "fail" that failed, and no "fail" control that passed; at least {min_solver_runs} \
 graded solver rollouts with a pass rate from {low} to {high}; format failures in at most {max_format_failures} of \
-the solver rollouts; and at least {min_adversary_runs} adversary rollouts with a graded answer. Last, an \
-independent reviewer reads the task, its grader, the failed solver answers and the adversary rollouts, and accepts \
-or refuses it. A changed task has no evidence until you run the tools on it again. submit tells you what is missing \
-or wrong.
+the solver rollouts; and at least {min_adversary_runs} adversary rollouts with a graded answer. Last, {reviews} \
+independent reviewers read the task, its grader, the failed solver answers and the adversary rollouts, and each \
+must accept it. submit refuses again a version that a review refused. A changed task has no evidence until you run \
+the tools on it again. submit tells you what is missing or wrong.
 - finish: stop, with a report. The session also stops when {n} tasks are accepted.
 
 # How to work well
@@ -95,9 +95,9 @@ have evidence, and a changed task loses its evidence.
 - Make a task harder with more reasoning steps or more data to work through, not with traps or unclear wording.
 - Make the tasks different from each other: different situations, data and reasoning, not only new numbers.
 - Keep notes in /workspace/notes.md, and use your research again for the next task.
-- The tools have a budget for this idea: {solver_rollouts} solver rollouts, {judge_calls} reviews and {web_calls} \
-web calls. When you cannot make more good tasks, call finish with a report \
-that says why. After {max_empty_budget_calls} calls on an empty budget, the tools stop the session.
+- The tools have a budget for this idea: {solver_rollouts} solver rollouts, {submit_reviews} reviewed submits and \
+{web_calls} web calls. When you cannot make more good tasks, call finish with a report that says why. After \
+{max_empty_budget_calls} calls on an empty budget, the tools stop the session.
 """
 
 USER_PROMPT = "Make {n} tasks for the capability {capability_id} in /workspace/idea.json."
