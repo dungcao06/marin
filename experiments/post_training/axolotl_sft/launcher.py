@@ -11,6 +11,7 @@ template (the fork's ``template_integrity`` contract), and writes a run manifest
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import os
@@ -25,6 +26,7 @@ from iris.client.client import IrisClient
 from iris.cluster.types import Entrypoint, EnvironmentSpec
 from iris.rpc import job_pb2
 from rigging.timing import Duration
+from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,9 @@ class AxolotlSpec:
     # the #6839 masking canary is defined on unpacked sequences.
     sample_packing: bool = False
     expert_parallel: bool = False
+    # Initialize weights from this checkpoint path (a previous curriculum stage's
+    # export) instead of the base download; the base still proves tokenizer/template.
+    init_checkpoint: str | None = None
 
     def __post_init__(self) -> None:
         if self.base.architecture not in SUPPORTED_ARCHITECTURES:
@@ -124,7 +129,9 @@ def axolotl_config(spec: AxolotlSpec, *, template_path: str | None = None) -> di
     if spec.chat_template is not None and template_path is None:
         raise ValueError("a spec with a custom chat_template needs the materialized template_path")
     config: dict[str, Any] = {
-        "base_model": f"{spec.base.hf_id}@{spec.base.revision}",
+        "base_model": (
+            f"{spec.base.hf_id}@{spec.base.revision}" if spec.init_checkpoint is None else spec.init_checkpoint
+        ),
         "sequence_len": spec.sequence_len,
         "sample_packing": spec.sample_packing,
         # template_integrity: the saved checkpoint embeds its chat template.
@@ -162,11 +169,7 @@ def axolotl_launch_command(
     """The exact shell command a launch runs; the 20-step smoke passes ``max_steps``."""
     overrides = [f"max_steps={max_steps}"] if max_steps is not None else []
     override_args = " ".join(overrides)
-    torchrun = (
-        f"torchrun --nnodes={nodes} --nproc-per-node={gpus_per_node} "
-        if nodes > 1
-        else ""
-    )
+    torchrun = f"torchrun --nnodes={nodes} --nproc-per-node={gpus_per_node} " if nodes > 1 else ""
     clone = f"git clone {AXOLOTL_FORK_REPO} && cd axolotl && git checkout {AXOLOTL_FORK_REVISION} && pip install -e ."
     return f"{clone} && cd .. && {torchrun}python -m axolotl.cli.train {output_dir}/axolotl_config.yaml {override_args}"
 
@@ -229,11 +232,8 @@ def run_axolotl_training(payload_json: str) -> None:
 
 def _verify_template_integrity(payload: AxolotlLaunchPayload, workdir: str) -> None:
     """The fork's template_integrity contract, re-checked outside the save path."""
-    from transformers import AutoTokenizer
-
     output_dir = os.path.join(workdir, payload.config["output_dir"])
-    tokenizer = AutoTokenizer.from_pretrained(output_dir)
-    embedded = getattr(tokenizer, "chat_template", None)
+    embedded = getattr(AutoTokenizer.from_pretrained(output_dir), "chat_template", None)
     if embedded is None:
         raise ValueError(
             f"saved checkpoint at {output_dir} embeds no chat template; "
@@ -322,7 +322,11 @@ def launch_axolotl(
             resources=native_resources,
             replicas=nodes,
             environment=environment,
-            constraints=convert_resources(resources).constraints if hasattr(convert_resources(resources), "constraints") else None,
+            constraints=(
+                convert_resources(resources).constraints
+                if hasattr(convert_resources(resources), "constraints")
+                else None
+            ),
             coscheduling=resolve_coscheduling(resources, nodes),
             scheduling_timeout=Duration.from_hours(24),
             timeout=Duration.from_hours(72),
@@ -349,8 +353,6 @@ _GPU_HOST_DISK_GB_PER_DEVICE = 512
 
 
 def __main__() -> None:  # pragma: no cover - pod entrypoint
-    import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--payload", required=True)
     args = parser.parse_args()

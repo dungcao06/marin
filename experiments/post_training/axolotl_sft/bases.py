@@ -35,7 +35,13 @@ NEMOTRON_3_NANO_30B_A3B_BASE = AxolotlBaseModel(
     tokenizer_has_template=False,
 )
 
+# The base ships no chat template; the published family template comes from the
+# reasoning sibling (pinned), per the train-equals-serve rule (#7427).
+NEMOTRON_TEMPLATE_SOURCE = (
+    "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+    "e5e9932441de940c9a62185c870ea5bcd4cd24e2",
+)
+
 AXOLOTL_BASES: dict[str, AxolotlBaseModel] = {
-    base.name: base
-    for base in (QWEN3_30B_A3B_BASE, QWEN35_35B_A3B_BASE, NEMOTRON_3_NANO_30B_A3B_BASE)
+    base.name: base for base in (QWEN3_30B_A3B_BASE, QWEN35_35B_A3B_BASE, NEMOTRON_3_NANO_30B_A3B_BASE)
 }

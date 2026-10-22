@@ -3,6 +3,8 @@
 
 """CPU tests for the Axolotl launcher: config build, pins, and the masking canary."""
 
+import os
+
 import pytest
 
 from experiments.post_training.axolotl_sft.bases import (
@@ -118,7 +120,7 @@ def test_transformers_pin_supports_the_three_architectures():
     version = tuple(int(part) for part in transformers.__version__.split(".")[:2])
     if version < (5, 12):
         pytest.skip(f"local transformers {transformers.__version__} predates the fork's 5.12.1 pin")
-    from transformers.models.auto.configuration_auto import CONFIG_MAPPING_NAMES
+    from transformers.models.auto.configuration_auto import CONFIG_MAPPING_NAMES  # noqa: PLC0415 - optional dep guard
 
     for architecture in ("qwen3_5_moe", "nemotron_h"):
         assert architecture in CONFIG_MAPPING_NAMES, architecture
@@ -140,8 +142,6 @@ def test_optimizer_rejects_silent_defaults():
 
 
 def _hf_reachable() -> bool:
-    import os
-
     return os.environ.get("HF_HUB_OFFLINE") != "1"
 
 
@@ -160,7 +160,7 @@ def test_masking_canary_per_chat_template(base):
     if base.tokenizer_has_template:
         try:
             tokenizer = AutoTokenizer.from_pretrained(base.hf_id, revision=base.revision)
-        except Exception as error:  # noqa: BLE001 - network/skip path
+        except Exception as error:
             pytest.skip(f"could not load {base.hf_id}: {error}")
     else:
         template = (
@@ -191,7 +191,7 @@ def test_masking_canary_per_chat_template(base):
             prefix = tokenizer.apply_chat_template(
                 CANARY_CONVERSATION[: index + 1], tokenize=False, add_generation_prompt=False
             )
-        except Exception:  # noqa: BLE001 - templates that require a user message
+        except Exception:
             continue
         new_text = prefix[previous_prefix_len:]
         if not new_text:
@@ -209,7 +209,6 @@ def test_masking_canary_per_chat_template(base):
     supervised_ids = [token for role, ids in spans if role == "assistant" for token in ids]
     unsupervised_ids = [token for role, ids in spans if role != "assistant" for token in ids]
     supervised_text = tokenizer.decode(supervised_ids)
-    unsupervised_text = tokenizer.decode(unsupervised_ids)
     assert "The user wants weather. I should call the tool." in supervised_text
     assert "It's 18C and cloudy in Paris." in supervised_text
     assert "What is the weather in Paris?" not in supervised_text
