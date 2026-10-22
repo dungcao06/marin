@@ -117,8 +117,13 @@ def write_split(tasks: list[RTask], output_dir_path) -> dict[str, int]:
                     continue
                 handle.write(
                     json.dumps(
-                        {"task_id": task.task_id, "problem": task.problem, "answer": task.answer,
-                         "source": task.source, "split": task.split},
+                        {
+                            "task_id": task.task_id,
+                            "problem": task.problem,
+                            "answer": task.answer,
+                            "source": task.source,
+                            "split": task.split,
+                        },
                         sort_keys=True,
                     )
                     + "\n"

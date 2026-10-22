@@ -45,7 +45,7 @@ def test_build_probe_sets_requires_every_set_and_truncates_to_size():
     assert set(manifest["sets"]) == set(PROBE_SET_NAMES)
     assert manifest["sets"]["P_chat"]["rows"] == 2
     assert manifest["sets"]["P_think"]["rows"] == 1
-    for name, entry in manifest["sets"].items():
+    for entry in manifest["sets"].values():
         assert len(entry["sha256"]) == 64
     with pytest.raises(ValueError, match="no spec"):
         build_probe_sets({name: specs[name] for name in ("P_chat",)})

@@ -29,8 +29,6 @@ def tag_trajectory(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     message; earlier assistant content is ordinary assistant text (bucketed as the
     final message is, since it is model-generated output tokens).
     """
-    assistant_turns = [index for index, message in enumerate(messages) if message.get("role") == "assistant"]
-    last_assistant = assistant_turns[-1] if assistant_turns else None
     rows: list[dict[str, Any]] = []
     for turn_index, message in enumerate(messages):
         role = message.get("role")
@@ -44,8 +42,7 @@ def tag_trajectory(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 rows.append(_row(turn_index, BUCKET_TOOL_ARGUMENTS, str(function.get("arguments", ""))))
             content = message.get("content") or ""
             if content:
-                bucket = BUCKET_FINAL_MESSAGE if turn_index == last_assistant else BUCKET_FINAL_MESSAGE
-                rows.append(_row(turn_index, bucket, content))
+                rows.append(_row(turn_index, BUCKET_FINAL_MESSAGE, content))
         # user/system turns are fixed context: no bucket, no scoring.
     return rows
 

@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from experiments.post_training.task_data.code_x import PROBE_SPLIT
 from experiments.post_training.task_data.math_r import normalize_problem
@@ -58,11 +59,7 @@ def build_probe_sets(specs: dict[str, ProbeSetSpec], *, stage0_norm_texts: set[s
             raise ValueError(f"probe set {name!r} has no spec")
         rows = spec.load()
         if stage0_norm_texts:
-            rows = [
-                row
-                for row in rows
-                if normalize_prompt_of(row) not in stage0_norm_texts
-            ]
+            rows = [row for row in rows if normalize_prompt_of(row) not in stage0_norm_texts]
         rows = rows[: spec.size]
         manifest["sets"][name] = {
             "revision": spec.revision,

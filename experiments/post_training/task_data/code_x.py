@@ -97,7 +97,7 @@ def synthesize_x_tasks(*, count: int, seed: int, template_pool=None) -> list[XTa
         code = _render_function(template, parameter)
         argument = generator.randint(-10_000, 10_000)
         call = f"f({argument})"
-        answer, rejection = trace_value(code, call, timeout=10.0)
+        answer, _rejection = trace_value(code, call, timeout=10.0)
         if answer is None:
             continue
         direction = DIRECTION_OUTPUT if generator.random() < 0.5 else DIRECTION_INPUT
@@ -120,7 +120,7 @@ def synthesize_x_tasks(*, count: int, seed: int, template_pool=None) -> list[XTa
 def verify_input_prediction(code: str, answer: str, candidate_input: str, *, timeout: float = 10.0) -> bool:
     """Grade an input prediction: execute the code on the candidate input and
     compare the resulting value with the reference output as literals."""
-    literal, rejection = trace_value(code, candidate_input, timeout=timeout)
+    literal, _rejection = trace_value(code, candidate_input, timeout=timeout)
     if literal is None:
         return False
     return literals_equal(answer, literal)

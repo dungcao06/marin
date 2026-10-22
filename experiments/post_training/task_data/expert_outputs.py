@@ -12,8 +12,9 @@ the fixed data is verified-expert data by construction.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from experiments.post_training.task_data.code_x import verify_input_prediction
 from experiments.post_training.task_data.math_r import verify_final_answer

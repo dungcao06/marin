@@ -15,6 +15,8 @@ from experiments.post_training.task_data.code_x import (
     exclude_public_cruxeval,
     synthesize_x_tasks,
     verify_input_prediction,
+)
+from experiments.post_training.task_data.code_x import (
     write_split as write_x_split,
 )
 from experiments.post_training.task_data.expert_outputs import (
@@ -28,6 +30,8 @@ from experiments.post_training.task_data.math_r import (
     is_reserved_for_probe,
     normalize_problem,
     verify_final_answer,
+)
+from experiments.post_training.task_data.math_r import (
     write_split as write_r_split,
 )
 
@@ -38,9 +42,9 @@ def test_synth_x_tasks_are_execution_graded_and_split_disjointly():
     for task in tasks:
         assert task.answer, "every task ships an execution-verified ground truth"
         if task.direction == DIRECTION_INPUT:
-            assert verify_input_prediction(task.code, task.answer, task.call), (
-                "the reference call must reproduce the reference output"
-            )
+            assert verify_input_prediction(
+                task.code, task.answer, task.call
+            ), "the reference call must reproduce the reference output"
     splits = {task.split for task in tasks}
     assert splits <= {TRAIN_SPLIT, PROBE_SPLIT}
 
@@ -99,8 +103,7 @@ def test_r_final_answer_verification_uses_the_math_verifier():
 
 def test_r_write_split(tmp_path):
     pool = [
-        {"problem": f"problem {index} plus one", "answer": str(index), "source": "math_train"}
-        for index in range(40)
+        {"problem": f"problem {index} plus one", "answer": str(index), "source": "math_train"} for index in range(40)
     ]
     tasks = draw_r_tasks(pool, seed=5, probe_fraction=0.2)
     counts = write_r_split(tasks, tmp_path)
