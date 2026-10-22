@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 from safetensors.torch import save_file
 
-from experiments.post_training.weight_analysis.delta_stats import component_of
+from experiments.post_training.weight_analysis.delta_stats import COMPONENT_GROUPS, component_of
 
 
 def graft(
@@ -27,9 +27,10 @@ def graft(
     only in the delta (a group the base lacks) are an error — grafting never
     invents weights.
     """
-    unknown = sorted(set(groups) - {group for group, _ in _KNOWN_GROUPS()})
+    known = [group for group, _ in COMPONENT_GROUPS]
+    unknown = sorted(set(groups) - set(known))
     if unknown:
-        raise ValueError(f"unknown component groups {unknown}; known: {[g for g, _ in _KNOWN_GROUPS()]}")
+        raise ValueError(f"unknown component groups {unknown}; known: {known}")
     grafted: dict[str, torch.Tensor] = {}
     for name, base_tensor in base.items():
         if component_of(name) in groups and name in delta:
@@ -38,12 +39,6 @@ def graft(
         else:
             grafted[name] = base_tensor
     return grafted
-
-
-def _KNOWN_GROUPS() -> tuple[tuple[str, tuple[str, ...]], ...]:
-    from experiments.post_training.weight_analysis.delta_stats import COMPONENT_GROUPS
-
-    return COMPONENT_GROUPS
 
 
 def write_checkpoint(tensors: dict[str, torch.Tensor], output_path: str | Path) -> None:

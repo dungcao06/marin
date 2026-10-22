@@ -86,7 +86,7 @@ def additivity(
 ) -> float:
     """How additive two single-task updates are inside the joint update.
 
-    Returns ‖Δ_joint − Δ_a − Δ_b‖ / (‖Δ_a‖ + ‖Δ_b‖): 0 when the joint delta is
+    Returns ‖Δ_joint - Δ_a - Δ_b‖ / (‖Δ_a‖ + ‖Δ_b‖): 0 when the joint delta is
     exactly the sum of the singles, 1 when the interaction energy equals the total
     single-task energy.
     """
